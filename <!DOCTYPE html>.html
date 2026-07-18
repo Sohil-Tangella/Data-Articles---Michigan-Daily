@@ -1,0 +1,176 @@
+<!--
+=========================================================
+Article Publishing System
+File: index.html
+
+Responsibilities:
+- Define the overall page structure
+- Display the website header and navigation
+- Display the Data page title
+- Provide containers for article cards
+- Provide the pagination container
+- Display status messages
+- Load the stylesheet and JavaScript
+=========================================================
+-->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <!-- Character encoding -->
+    <meta charset="UTF-8">
+
+    <!-- Responsive design -->
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <!-- Search engine description -->
+    <meta
+        name="description"
+        content="Browse data journalism articles."
+    >
+
+    <title>Michigan Daily | Data</title>
+
+    <!-- Stylesheet -->
+    <link
+        rel="stylesheet"
+        href="styles.css"
+    >
+
+</head>
+
+<body>
+
+    <!-- ==========================
+         Website Header
+    =========================== -->
+
+    <header class="site-header">
+
+        <div class="header-container">
+
+            <h1 class="logo">
+                The Michigan Daily
+            </h1>
+
+            <nav class="navigation">
+
+                <ul>
+
+                    <li><a href="#">News</a></li>
+
+                    <li><a href="#">Sports</a></li>
+
+                    <li><a href="#">Opinion</a></li>
+
+                    <li><a href="#">Arts</a></li>
+
+                    <li><a href="#">Multimedia</a></li>
+
+                    <li>
+                        <a
+                            href="#"
+                            class="active"
+                        >
+                            Data
+                        </a>
+                    </li>
+
+                </ul>
+
+            </nav>
+
+        </div>
+
+    </header>
+
+    <!-- ==========================
+         Main Content
+    =========================== -->
+
+    <main>
+
+        <section class="page-title">
+
+            <h2>Data</h2>
+
+            <p>
+                Explore data-driven journalism from
+                The Michigan Daily.
+            </p>
+
+        </section>
+
+        <!-- ==========================
+             Articles Container
+
+             JavaScript inserts every
+             article card into this section.
+        =========================== -->
+
+        <section
+            id="article-container"
+            class="article-container"
+        >
+
+        </section>
+
+        <!-- ==========================
+             Pagination
+
+             JavaScript automatically
+             creates the page buttons.
+        =========================== -->
+
+        <section
+            id="pagination"
+            class="pagination"
+        >
+
+        </section>
+
+        <!-- Loading / Status Message -->
+
+        <section
+            id="status-message"
+            class="status-message"
+        >
+
+        </section>
+
+    </main>
+
+    <!-- ==========================
+         Footer
+    =========================== -->
+
+    <footer>
+
+        <p>
+
+            © 2026 The Michigan Daily
+
+        </p>
+
+    </footer>
+
+    <!-- ==========================
+         JavaScript
+
+         Loaded last so the page
+         structure exists before
+         JavaScript begins.
+    =========================== -->
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
