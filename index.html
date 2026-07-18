@@ -1,21 +1,3 @@
-<!--
-=========================================================
-Article Publishing System
-File: index.html
-
-Responsibilities:
-- Define the overall page structure
-- Display the website header and navigation
-- Display the Data page title
-- Provide containers for article cards
-- Provide the pagination container
-- Display status messages
-- Load the stylesheet and JavaScript
-=========================================================
--->
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -47,6 +29,22 @@ Responsibilities:
 </head>
 
 <body>
+
+    <!--
+    =========================================================
+    Article Publishing System
+    File: index.html
+
+    Responsibilities:
+    - Define the overall page structure
+    - Display the website header and navigation
+    - Display the Data page title
+    - Provide containers for article cards
+    - Provide the pagination container
+    - Display status messages
+    - Load the stylesheet and JavaScript
+    =========================================================
+    -->
 
     <!-- ==========================
          Website Header
@@ -108,12 +106,9 @@ Responsibilities:
 
         </section>
 
-        <!-- ==========================
-             Articles Container
-
-             JavaScript inserts every
-             article card into this section.
-        =========================== -->
+        <!--
+        JavaScript inserts all article cards here.
+        -->
 
         <section
             id="article-container"
@@ -122,12 +117,9 @@ Responsibilities:
 
         </section>
 
-        <!-- ==========================
-             Pagination
-
-             JavaScript automatically
-             creates the page buttons.
-        =========================== -->
+        <!--
+        JavaScript generates the pagination buttons here.
+        -->
 
         <section
             id="pagination"
@@ -136,7 +128,9 @@ Responsibilities:
 
         </section>
 
-        <!-- Loading / Status Message -->
+        <!--
+        Loading and status messages appear here.
+        -->
 
         <section
             id="status-message"
@@ -161,13 +155,10 @@ Responsibilities:
 
     </footer>
 
-    <!-- ==========================
-         JavaScript
-
-         Loaded last so the page
-         structure exists before
-         JavaScript begins.
-    =========================== -->
+    <!--
+    Load the frontend JavaScript after
+    the HTML has finished loading.
+    -->
 
     <script src="script.js"></script>
 
