@@ -2,229 +2,117 @@
 
 /*
 =========================================================
-Article Publishing System
+Michigan Daily Article Publishing System
 File: database.js
 
 Responsibilities:
-- Connect to the SQLite database
+- Connect to PostgreSQL
+- Manage a reusable connection pool
+- Execute parameterized SQL queries
+- Retrieve single database rows
 - Read and execute schema.sql
-- Create database tables
-- Run INSERT, UPDATE, and DELETE statements
-- Retrieve one database row
-- Retrieve multiple database rows
-- Close the database connection safely
+- Initialize database tables and indexes
+- Verify database connectivity
+- Close database connections safely
 =========================================================
 */
 
 const fs = require("fs");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg");
+
+require("dotenv").config();
+
 
 /*
- * Create the path to the SQLite database file.
+=========================================================
+PostgreSQL Connection Pool
+=========================================================
+*/
+
+const pool = new Pool({
+    host: process.env.DB_HOST || "localhost",
+    port: Number.parseInt(
+        process.env.DB_PORT || "5432",
+        10
+    ),
+    database:
+        process.env.DB_NAME ||
+        "michigan_daily",
+    user:
+        process.env.DB_USER ||
+        "postgres",
+    password:
+        process.env.DB_PASSWORD ||
+        "postgres",
+
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000
+});
+
+
+/*
+ * Log unexpected connection-pool errors.
  *
- * The database will be stored in the same folder
- * as this JavaScript file.
+ * This prevents idle PostgreSQL client errors
+ * from failing silently.
  */
-const databasePath = path.join(
-    __dirname,
-    "articles.db"
-);
+pool.on("error", (error) => {
+    console.error(
+        "Unexpected PostgreSQL connection error:",
+        error.message
+    );
+});
+
 
 /*
- * Create the path to schema.sql.
- */
+=========================================================
+Schema Path
+=========================================================
+*/
+
 const schemaPath = path.join(
     __dirname,
     "schema.sql"
 );
 
-/*
- * Open the SQLite database.
- *
- * If articles.db does not already exist,
- * SQLite creates it automatically.
- */
-const database = new sqlite3.Database(
-    databasePath,
-    (error) => {
-        if (error) {
-            console.error(
-                "Unable to connect to the SQLite database:",
-                error.message
-            );
-
-            return;
-        }
-
-        console.log(
-            `Connected to SQLite database: ${databasePath}`
-        );
-    }
-);
 
 /*
- * Enable foreign-key support.
- *
- * SQLite does not always enforce foreign keys
- * automatically, so this command turns them on.
- */
-database.run(
-    "PRAGMA foreign_keys = ON;",
-    (error) => {
-        if (error) {
-            console.error(
-                "Unable to enable foreign keys:",
-                error.message
-            );
-        }
-    }
-);
+=========================================================
+Database Query Helpers
+=========================================================
+*/
 
 /*
- * Run an SQL statement that changes the database.
+ * Execute a parameterized PostgreSQL query.
  *
- * Use this function for:
- *
- * INSERT
- * UPDATE
- * DELETE
- * CREATE TABLE
- *
- * The returned object contains:
- *
- * id:
- * The ID of a newly inserted row.
- *
- * changes:
- * The number of rows affected.
- */
-function run(sql, parameters = []) {
-    return new Promise((resolve, reject) => {
-        database.run(
-            sql,
-            parameters,
-            function handleResult(error) {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-
-                resolve({
-                    id: this.lastID,
-                    changes: this.changes
-                });
-            }
-        );
-    });
-}
-
-/*
- * Retrieve one row from the database.
- *
- * Use this function when expecting
- * a single result.
+ * Use this function when:
+ * - retrieving multiple rows
+ * - running general SQL statements
  *
  * Example:
  *
- * SELECT * FROM articles WHERE id = ?
+ * query(
+ *     "SELECT * FROM articles WHERE status = $1",
+ *     ["published"]
+ * )
  */
-function get(sql, parameters = []) {
-    return new Promise((resolve, reject) => {
-        database.get(
-            sql,
-            parameters,
-            (error, row) => {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-
-                resolve(row);
-            }
-        );
-    });
-}
-
-/*
- * Retrieve multiple rows from the database.
- *
- * Use this function when expecting
- * a list of results.
- *
- * Example:
- *
- * SELECT * FROM articles
- */
-function all(sql, parameters = []) {
-    return new Promise((resolve, reject) => {
-        database.all(
-            sql,
-            parameters,
-            (error, rows) => {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-
-                resolve(rows);
-            }
-        );
-    });
-}
-
-/*
- * Execute a complete SQL script.
- *
- * Unlike run(), exec() can execute multiple
- * SQL statements from one string.
- *
- * This is useful for schema.sql because that
- * file may contain several CREATE statements.
- */
-function executeScript(sqlScript) {
-    return new Promise((resolve, reject) => {
-        database.exec(
-            sqlScript,
-            (error) => {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-
-                resolve();
-            }
-        );
-    });
-}
-
-/*
- * Initialize the database.
- *
- * This function:
- *
- * 1. Reads schema.sql.
- * 2. Executes its SQL commands.
- * 3. Creates the required tables and indexes.
- *
- * CREATE TABLE IF NOT EXISTS prevents existing
- * tables from being recreated or erased.
- */
-async function initializeDatabase() {
+async function query(
+    sql,
+    parameters = []
+) {
     try {
-        const schema = await fs.promises.readFile(
-            schemaPath,
-            "utf8"
+        const result = await pool.query(
+            sql,
+            parameters
         );
 
-        await executeScript(schema);
+        return result.rows;
 
-        console.log(
-            "Database tables initialized successfully."
-        );
     } catch (error) {
         console.error(
-            "Unable to initialize the database:",
+            "Database query failed:",
             error.message
         );
 
@@ -232,41 +120,193 @@ async function initializeDatabase() {
     }
 }
 
+
 /*
- * Close the SQLite connection safely.
+ * Execute a query and return the first row.
  *
- * server.js calls this function when
- * the backend shuts down.
+ * Returns null when no matching record exists.
+ *
+ * This is useful for:
+ * - retrieving one article
+ * - INSERT ... RETURNING
+ * - UPDATE ... RETURNING
+ * - DELETE ... RETURNING
  */
-function closeDatabase() {
-    return new Promise((resolve, reject) => {
-        database.close((error) => {
-            if (error) {
-                reject(error);
-                return;
-            }
+async function get(
+    sql,
+    parameters = []
+) {
+    try {
+        const result = await pool.query(
+            sql,
+            parameters
+        );
 
-            console.log(
-                "SQLite database connection closed."
-            );
+        return result.rows[0] || null;
 
-            resolve();
-        });
-    });
+    } catch (error) {
+        console.error(
+            "Database query failed:",
+            error.message
+        );
+
+        throw error;
+    }
 }
 
+
 /*
- * Export the reusable database functions.
+=========================================================
+Database Health Check
+=========================================================
+*/
+
+async function checkDatabaseConnection() {
+    let client;
+
+    try {
+        client = await pool.connect();
+
+        await client.query(
+            "SELECT 1;"
+        );
+
+        console.log(
+            "PostgreSQL connection verified."
+        );
+
+        return true;
+
+    } catch (error) {
+        console.error(
+            "Unable to connect to PostgreSQL:",
+            error.message
+        );
+
+        throw error;
+
+    } finally {
+        if (client) {
+            client.release();
+        }
+    }
+}
+
+
+/*
+=========================================================
+Database Initialization
+=========================================================
+*/
+
+/*
+ * Initialize the PostgreSQL schema.
  *
- * articles.js imports run(), get(), and all().
+ * This function:
  *
- * server.js imports initializeDatabase()
- * and closeDatabase().
+ * 1. Reads schema.sql.
+ * 2. Opens a PostgreSQL client.
+ * 3. Starts a transaction.
+ * 4. Executes the schema.
+ * 5. Commits the transaction.
+ *
+ * If initialization fails, the transaction
+ * is rolled back.
  */
+async function initializeDatabase() {
+    let client;
+
+    try {
+        const schema =
+            await fs.promises.readFile(
+                schemaPath,
+                "utf8"
+            );
+
+        client = await pool.connect();
+
+        await client.query("BEGIN");
+
+        await client.query(schema);
+
+        await client.query("COMMIT");
+
+        console.log(
+            "PostgreSQL schema initialized successfully."
+        );
+
+    } catch (error) {
+        if (client) {
+            try {
+                await client.query(
+                    "ROLLBACK"
+                );
+            } catch (
+                rollbackError
+            ) {
+                console.error(
+                    "Database rollback failed:",
+                    rollbackError.message
+                );
+            }
+        }
+
+        console.error(
+            "Unable to initialize PostgreSQL schema:",
+            error.message
+        );
+
+        throw error;
+
+    } finally {
+        if (client) {
+            client.release();
+        }
+    }
+}
+
+
+/*
+=========================================================
+Database Shutdown
+=========================================================
+*/
+
+/*
+ * Close all PostgreSQL connections.
+ *
+ * server.js should call this function when
+ * the application shuts down.
+ */
+async function closeDatabase() {
+    try {
+        await pool.end();
+
+        console.log(
+            "PostgreSQL connection pool closed."
+        );
+
+    } catch (error) {
+        console.error(
+            "Unable to close PostgreSQL connections:",
+            error.message
+        );
+
+        throw error;
+    }
+}
+
+
+/*
+=========================================================
+Exports
+=========================================================
+*/
+
 module.exports = {
-    run,
+    query,
     get,
-    all,
+    checkDatabaseConnection,
     initializeDatabase,
     closeDatabase
 };
