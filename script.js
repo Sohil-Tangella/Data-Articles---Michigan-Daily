@@ -2,44 +2,47 @@
 
 /*
 =========================================================
-Article Publishing System
+Michigan Daily Article Publishing System
 File: script.js
 
 Responsibilities:
 - Request published articles from the backend
-- Create article cards
-- Insert cards into the page
-- Handle pagination
-- Format dates
-- Display loading and error messages
+- Search articles
+- Filter articles by category
+- Render article cards
+- Handle server-side pagination
+- Display result counts
+- Display loading, empty, and error states
+- Format article metadata
 =========================================================
 */
 
-/*
- * The backend server runs on port 3000.
- *
- * This route is handled by articles.js.
- */
-const API_URL = "http://localhost:3000/api/articles";
 
-/*
- * Number of articles shown on each page.
- */
+// =========================================================
+// Configuration
+// =========================================================
+
+const API_URL = "/api/articles";
+
 const ARTICLES_PER_PAGE = 5;
 
-/*
- * Tracks the page the reader is currently viewing.
- */
+
+// =========================================================
+// Application State
+// =========================================================
+
 let currentPage = 1;
+let totalPages = 1;
+let totalArticles = 0;
 
-/*
- * Stores the articles returned by the backend.
- */
-let articles = [];
+let currentSearch = "";
+let currentCategory = "";
 
-/*
- * Retrieve the HTML elements created in index.html.
- */
+
+// =========================================================
+// DOM Elements
+// =========================================================
+
 const articleContainer = document.querySelector(
     "#article-container"
 );
@@ -52,17 +55,35 @@ const statusMessage = document.querySelector(
     "#status-message"
 );
 
-/*
- * Converts a database date into a readable date.
- *
- * Example:
- *
- * 2026-07-17T15:30:00.000Z
- *
- * becomes:
- *
- * July 17, 2026
- */
+const resultsCount = document.querySelector(
+    "#results-count"
+);
+
+const searchForm = document.querySelector(
+    "#article-search-form"
+);
+
+const searchInput = document.querySelector(
+    "#article-search"
+);
+
+const categoryFilter = document.querySelector(
+    "#category-filter"
+);
+
+const emptyState = document.querySelector(
+    "#empty-state"
+);
+
+const clearFiltersButton = document.querySelector(
+    "#clear-filters"
+);
+
+
+// =========================================================
+// Utility Functions
+// =========================================================
+
 function formatDate(dateValue) {
     if (!dateValue) {
         return "Unpublished";
@@ -74,25 +95,73 @@ function formatDate(dateValue) {
         return "Unknown date";
     }
 
-    return new Intl.DateTimeFormat("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric"
-    }).format(date);
+    return new Intl.DateTimeFormat(
+        "en-US",
+        {
+            month: "long",
+            day: "numeric",
+            year: "numeric"
+        }
+    ).format(date);
 }
 
-/*
- * Creates the featured-image section of an article card.
- */
+
+function buildArticleUrl(articleId) {
+    return `article.html?id=${articleId}`;
+}
+
+
+function buildApiUrl() {
+    const parameters =
+        new URLSearchParams();
+
+    parameters.set(
+        "page",
+        String(currentPage)
+    );
+
+    parameters.set(
+        "limit",
+        String(ARTICLES_PER_PAGE)
+    );
+
+    if (currentSearch) {
+        parameters.set(
+            "search",
+            currentSearch
+        );
+    }
+
+    if (currentCategory) {
+        parameters.set(
+            "category",
+            currentCategory
+        );
+    }
+
+    return `${API_URL}?${parameters.toString()}`;
+}
+
+
+// =========================================================
+// Article Card Components
+// =========================================================
+
 function createArticleImage(article) {
-    const imageLink = document.createElement("a");
+    const imageLink =
+        document.createElement("a");
 
-    imageLink.href = `article.html?id=${article.id}`;
-    imageLink.className = "article-image-link";
+    imageLink.href =
+        buildArticleUrl(article.id);
 
-    const image = document.createElement("img");
+    imageLink.className =
+        "article-image-link";
 
-    image.className = "article-image";
+    const image =
+        document.createElement("img");
+
+    image.className =
+        "article-image";
 
     image.src =
         article.imageUrl ||
@@ -104,112 +173,141 @@ function createArticleImage(article) {
 
     image.loading = "lazy";
 
-    /*
-     * If the requested image cannot be loaded,
-     * replace it with the placeholder image.
-     */
-    image.addEventListener("error", () => {
-        image.src = "images/article-placeholder.jpg";
-    });
+    image.addEventListener(
+        "error",
+        () => {
+            if (
+                !image.src.endsWith(
+                    "article-placeholder.jpg"
+                )
+            ) {
+                image.src =
+                    "images/article-placeholder.jpg";
+            }
+        }
+    );
 
     imageLink.appendChild(image);
 
     return imageLink;
 }
 
-/*
- * Creates one complete article card.
- *
- * The result looks like:
- *
- * [Image]    Article title
- *            Author • Date
- *            Excerpt
- *            Read article →
- */
+
+function createArticleCategory(article) {
+    const category =
+        document.createElement("span");
+
+    category.className =
+        "article-category";
+
+    category.textContent =
+        article.category || "General";
+
+    return category;
+}
+
+
 function createArticleCard(article) {
-    const articleCard = document.createElement("article");
+    const articleCard =
+        document.createElement("article");
 
-    articleCard.className = "article-card";
+    articleCard.className =
+        "article-card";
 
-    /*
-     * Create the image.
-     */
-    const imageElement = createArticleImage(article);
 
-    /*
-     * Create the text-content section.
-     */
-    const articleContent = document.createElement("div");
+    // Image
+    const imageElement =
+        createArticleImage(article);
 
-    articleContent.className = "article-content";
 
-    /*
-     * Create the article title.
-     */
-    const title = document.createElement("h3");
+    // Content wrapper
+    const articleContent =
+        document.createElement("div");
 
-    title.className = "article-title";
+    articleContent.className =
+        "article-content";
 
-    const titleLink = document.createElement("a");
 
-    titleLink.href = `article.html?id=${article.id}`;
-    titleLink.textContent = article.title;
+    // Category
+    const category =
+        createArticleCategory(article);
+
+
+    // Title
+    const title =
+        document.createElement("h2");
+
+    title.className =
+        "article-title";
+
+    const titleLink =
+        document.createElement("a");
+
+    titleLink.href =
+        buildArticleUrl(article.id);
+
+    titleLink.textContent =
+        article.title;
 
     title.appendChild(titleLink);
 
-    /*
-     * Create the author and publication-date section.
-     */
-    const metadata = document.createElement("p");
 
-    metadata.className = "article-meta";
+    // Metadata
+    const metadata =
+        document.createElement("p");
+
+    metadata.className =
+        "article-meta";
 
     const author =
-        article.author && article.author.trim()
+        article.author?.trim()
             ? article.author
             : "Staff";
 
-    const publicationDate = formatDate(
-        article.publishedAt || article.createdAt
-    );
+    const publicationDate =
+        formatDate(
+            article.publishedAt ||
+            article.createdAt
+        );
 
     metadata.textContent =
         `By ${author} • ${publicationDate}`;
 
-    /*
-     * Create the article excerpt.
-     */
-    const excerpt = document.createElement("p");
 
-    excerpt.className = "article-excerpt";
+    // Excerpt
+    const excerpt =
+        document.createElement("p");
+
+    excerpt.className =
+        "article-excerpt";
 
     excerpt.textContent =
         article.excerpt ||
         "Read the complete article for more information.";
 
-    /*
-     * Create the Read Article link.
-     */
-    const readMoreLink = document.createElement("a");
 
-    readMoreLink.className = "read-more";
-    readMoreLink.href = `article.html?id=${article.id}`;
-    readMoreLink.textContent = "Read article →";
+    // Read-more link
+    const readMoreLink =
+        document.createElement("a");
 
-    /*
-     * Add all text elements to the content section.
-     */
+    readMoreLink.className =
+        "read-more";
+
+    readMoreLink.href =
+        buildArticleUrl(article.id);
+
+    readMoreLink.textContent =
+        "Read article →";
+
+
     articleContent.append(
+        category,
         title,
         metadata,
         excerpt,
         readMoreLink
     );
 
-    /*
-     * Add the image and content to the card.
-     */
     articleCard.append(
         imageElement,
         articleContent
@@ -218,84 +316,80 @@ function createArticleCard(article) {
     return articleCard;
 }
 
-/*
- * Returns only the articles that belong
- * on the selected pagination page.
- */
-function getArticlesForCurrentPage() {
-    const startIndex =
-        (currentPage - 1) * ARTICLES_PER_PAGE;
 
-    const endIndex =
-        startIndex + ARTICLES_PER_PAGE;
+// =========================================================
+// Article Rendering
+// =========================================================
 
-    return articles.slice(
-        startIndex,
-        endIndex
-    );
-}
-
-/*
- * Removes the existing cards and displays
- * the articles for the current page.
- */
-function renderArticles() {
+function renderArticles(articles) {
     articleContainer.replaceChildren();
 
     if (articles.length === 0) {
-        const emptyMessage = document.createElement("p");
-
-        emptyMessage.className = "empty-message";
-
-        emptyMessage.textContent =
-            "No published articles are currently available.";
-
-        articleContainer.appendChild(emptyMessage);
+        emptyState.hidden = false;
 
         return;
     }
 
-    const currentArticles =
-        getArticlesForCurrentPage();
+    emptyState.hidden = true;
 
-    /*
-     * A document fragment allows all article cards
-     * to be created before inserting them into the page.
-     */
     const fragment =
         document.createDocumentFragment();
 
-    currentArticles.forEach((article) => {
-        const articleCard =
-            createArticleCard(article);
-
-        fragment.appendChild(articleCard);
+    articles.forEach((article) => {
+        fragment.appendChild(
+            createArticleCard(article)
+        );
     });
 
-    articleContainer.appendChild(fragment);
-
-    updateStatusMessage();
+    articleContainer.appendChild(
+        fragment
+    );
 }
 
-/*
- * Creates one pagination button.
- */
-function createPageButton(pageNumber) {
-    const button = document.createElement("button");
+
+// =========================================================
+// Pagination
+// =========================================================
+
+function changePage(pageNumber) {
+    if (
+        pageNumber < 1 ||
+        pageNumber > totalPages ||
+        pageNumber === currentPage
+    ) {
+        return;
+    }
+
+    currentPage = pageNumber;
+
+    loadArticles();
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+}
+
+
+function createPaginationButton(
+    text,
+    pageNumber,
+    options = {}
+) {
+    const button =
+        document.createElement("button");
 
     button.type = "button";
-    button.textContent = String(pageNumber);
+    button.textContent = text;
 
-    button.setAttribute(
-        "aria-label",
-        `Go to page ${pageNumber}`
-    );
+    if (options.disabled) {
+        button.disabled = true;
+    }
 
-    /*
-     * Visually identify the current page.
-     */
-    if (pageNumber === currentPage) {
-        button.classList.add("active-page");
+    if (options.active) {
+        button.classList.add(
+            "active-page"
+        );
 
         button.setAttribute(
             "aria-current",
@@ -303,261 +397,318 @@ function createPageButton(pageNumber) {
         );
     }
 
-    button.addEventListener("click", () => {
-        currentPage = pageNumber;
+    button.setAttribute(
+        "aria-label",
+        options.label ||
+        `Go to page ${pageNumber}`
+    );
 
-        renderArticles();
-        renderPagination();
-
-        /*
-         * Move the browser back to the page title
-         * after the reader changes pages.
-         */
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-    });
-
-    return button;
-}
-
-/*
- * Creates the Previous button.
- */
-function createPreviousButton() {
-    const button = document.createElement("button");
-
-    button.type = "button";
-    button.textContent = "Previous";
-
-    button.disabled = currentPage === 1;
-
-    button.addEventListener("click", () => {
-        if (currentPage <= 1) {
-            return;
+    button.addEventListener(
+        "click",
+        () => {
+            changePage(pageNumber);
         }
-
-        currentPage -= 1;
-
-        renderArticles();
-        renderPagination();
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-    });
+    );
 
     return button;
 }
 
-/*
- * Creates the Next button.
- */
-function createNextButton(totalPages) {
-    const button = document.createElement("button");
 
-    button.type = "button";
-    button.textContent = "Next";
-
-    button.disabled =
-        currentPage === totalPages;
-
-    button.addEventListener("click", () => {
-        if (currentPage >= totalPages) {
-            return;
-        }
-
-        currentPage += 1;
-
-        renderArticles();
-        renderPagination();
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-    });
-
-    return button;
-}
-
-/*
- * Creates all pagination controls.
- */
 function renderPagination() {
     paginationContainer.replaceChildren();
 
-    const totalPages = Math.ceil(
-        articles.length / ARTICLES_PER_PAGE
-    );
-
-    /*
-     * Pagination is unnecessary when there is
-     * only one page of results.
-     */
     if (totalPages <= 1) {
         return;
     }
 
+
+    // Previous
     paginationContainer.appendChild(
-        createPreviousButton()
+        createPaginationButton(
+            "Previous",
+            currentPage - 1,
+            {
+                disabled:
+                    currentPage === 1,
+                label:
+                    "Go to previous page"
+            }
+        )
     );
 
+
+    // Page numbers
     for (
-        let pageNumber = 1;
-        pageNumber <= totalPages;
-        pageNumber += 1
+        let page = 1;
+        page <= totalPages;
+        page += 1
     ) {
         paginationContainer.appendChild(
-            createPageButton(pageNumber)
+            createPaginationButton(
+                String(page),
+                page,
+                {
+                    active:
+                        page === currentPage,
+                    label:
+                        `Go to page ${page}`
+                }
+            )
         );
     }
 
+
+    // Next
     paginationContainer.appendChild(
-        createNextButton(totalPages)
+        createPaginationButton(
+            "Next",
+            currentPage + 1,
+            {
+                disabled:
+                    currentPage === totalPages,
+                label:
+                    "Go to next page"
+            }
+        )
     );
 }
 
-/*
- * Displays information such as:
- *
- * Showing articles 1–5 of 12.
- */
-function updateStatusMessage() {
-    if (articles.length === 0) {
+
+// =========================================================
+// Status Messages
+// =========================================================
+
+function updateResultsInformation(
+    articleCount
+) {
+    if (totalArticles === 0) {
+        resultsCount.textContent = "";
         statusMessage.textContent = "";
+
         return;
     }
 
     const startingArticle =
-        (currentPage - 1) * ARTICLES_PER_PAGE + 1;
+        (currentPage - 1) *
+        ARTICLES_PER_PAGE +
+        1;
 
-    const endingArticle = Math.min(
-        currentPage * ARTICLES_PER_PAGE,
-        articles.length
-    );
+    const endingArticle =
+        startingArticle +
+        articleCount -
+        1;
+
+    resultsCount.textContent =
+        `${totalArticles} article${
+            totalArticles === 1
+                ? ""
+                : "s"
+        } found`;
 
     statusMessage.textContent =
         `Showing articles ${startingArticle}–` +
-        `${endingArticle} of ${articles.length}.`;
+        `${endingArticle} of ${totalArticles}.`;
 }
 
-/*
- * Displays a loading message while waiting
- * for the backend server.
- */
-function showLoadingMessage() {
+
+function showLoadingState() {
     articleContainer.replaceChildren();
     paginationContainer.replaceChildren();
+
+    emptyState.hidden = true;
 
     statusMessage.textContent =
         "Loading articles...";
+
+    resultsCount.textContent = "";
 }
 
-/*
- * Displays an error message when the backend
- * cannot return the article data.
- */
-function showErrorMessage(message) {
+
+function showErrorState(message) {
     articleContainer.replaceChildren();
     paginationContainer.replaceChildren();
 
-    const errorMessage = document.createElement("p");
+    emptyState.hidden = true;
 
-    errorMessage.className = "empty-message";
-
-    errorMessage.textContent = message;
-
-    articleContainer.appendChild(errorMessage);
+    resultsCount.textContent = "";
 
     statusMessage.textContent = "";
+
+    const errorMessage =
+        document.createElement("p");
+
+    errorMessage.className =
+        "empty-message";
+
+    errorMessage.textContent =
+        message;
+
+    articleContainer.appendChild(
+        errorMessage
+    );
 }
 
-/*
- * Requests published articles from the backend API.
- */
+
+// =========================================================
+// API Requests
+// =========================================================
+
 async function loadArticles() {
-    showLoadingMessage();
+    showLoadingState();
 
     try {
-        const response = await fetch(API_URL);
+        const response = await fetch(
+            buildApiUrl()
+        );
 
-        /*
-         * fetch() only throws for network errors.
-         * We manually check HTTP errors such as 404 or 500.
-         */
         if (!response.ok) {
             throw new Error(
-                `The server returned status ${response.status}.`
+                `Server returned status ${response.status}.`
             );
         }
 
-        const responseData = await response.json();
+        const data =
+            await response.json();
 
-        /*
-         * The API may return either:
-         *
-         * 1. A direct array of articles
-         *
-         * or:
-         *
-         * 2. An object containing an articles array
-         */
-        if (Array.isArray(responseData)) {
-            articles = responseData;
-        } else if (
-            responseData &&
-            Array.isArray(responseData.articles)
+        if (
+            !data ||
+            !Array.isArray(data.articles)
         ) {
-            articles = responseData.articles;
-        } else {
             throw new Error(
                 "The server returned an invalid article response."
             );
         }
 
-        currentPage = 1;
+        totalArticles =
+            Number(data.total) || 0;
 
-        renderArticles();
+        totalPages =
+            Number(data.totalPages) || 1;
+
+        currentPage =
+            Number(data.page) || currentPage;
+
+        renderArticles(
+            data.articles
+        );
+
         renderPagination();
+
+        updateResultsInformation(
+            data.articles.length
+        );
+
     } catch (error) {
         console.error(
             "Unable to load articles:",
             error
         );
 
-        showErrorMessage(
-            "The articles could not be loaded. " +
-            "Make sure the backend server is running."
+        showErrorState(
+            "The articles could not be loaded. Please try again."
         );
     }
 }
 
-/*
- * Starts the frontend application.
- */
+
+// =========================================================
+// Search and Filtering
+// =========================================================
+
+function handleSearch(event) {
+    event.preventDefault();
+
+    currentSearch =
+        searchInput.value.trim();
+
+    currentPage = 1;
+
+    loadArticles();
+}
+
+
+function handleCategoryChange() {
+    currentCategory =
+        categoryFilter.value;
+
+    currentPage = 1;
+
+    loadArticles();
+}
+
+
+function clearFilters() {
+    currentSearch = "";
+    currentCategory = "";
+    currentPage = 1;
+
+    searchInput.value = "";
+    categoryFilter.value = "";
+
+    loadArticles();
+
+    searchInput.focus();
+}
+
+
+// =========================================================
+// Event Listeners
+// =========================================================
+
+function registerEventListeners() {
+    searchForm.addEventListener(
+        "submit",
+        handleSearch
+    );
+
+    categoryFilter.addEventListener(
+        "change",
+        handleCategoryChange
+    );
+
+    clearFiltersButton.addEventListener(
+        "click",
+        clearFilters
+    );
+}
+
+
+// =========================================================
+// Application Initialization
+// =========================================================
+
 function initializePage() {
-    if (
-        !articleContainer ||
-        !paginationContainer ||
-        !statusMessage
-    ) {
+    const requiredElements = [
+        articleContainer,
+        paginationContainer,
+        statusMessage,
+        resultsCount,
+        searchForm,
+        searchInput,
+        categoryFilter,
+        emptyState,
+        clearFiltersButton
+    ];
+
+    const missingElement =
+        requiredElements.some(
+            (element) => !element
+        );
+
+    if (missingElement) {
         console.error(
-            "The required HTML containers were not found."
+            "Required page elements were not found."
         );
 
         return;
     }
 
+    registerEventListeners();
+
     loadArticles();
 }
 
-/*
- * Wait until the HTML structure has loaded,
- * then begin requesting the articles.
- */
+
 document.addEventListener(
     "DOMContentLoaded",
     initializePage
