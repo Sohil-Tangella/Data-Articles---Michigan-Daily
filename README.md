@@ -1,180 +1,265 @@
-# Data-Articles---Michigan-Daily
-# Article Publishing System
+# Michigan Daily Data Article Publishing System
 
-This project is a simple full-stack article publishing system.
+## Overview
 
-It includes:
+The Michigan Daily Data Article Publishing System is a full-stack web application designed to support data-driven journalism and article publishing workflows.
 
-- A frontend that displays articles
-- A backend API that manages articles
-- A SQLite database that stores article data
+The application provides a responsive public-facing article archive backed by a REST API and PostgreSQL database. Readers can search, filter, and browse published articles, while the backend supports article creation, editing, deletion, and multi-stage editorial workflows.
 
-The project uses:
+The project demonstrates full-stack software engineering concepts including REST API development, relational database design, server-side search and pagination, data validation, connection pooling, responsive frontend development, and application lifecycle management.
+
+---
+
+## Features
+
+- Browse published data journalism articles
+- Search articles by title, author, excerpt, or content
+- Filter articles by category
+- Navigate articles using server-side pagination
+- Create, edit, and delete articles through REST API endpoints
+- Manage articles through a multi-stage editorial workflow
+- Automatically track article creation, modification, and publication timestamps
+- Validate article data at both the application and database levels
+- Store article data in PostgreSQL
+- Reuse database connections through PostgreSQL connection pooling
+- Display loading, error, and empty-result states
+- Responsive layouts for desktop, tablet, and mobile devices
+- Health-check endpoint for application and database availability
+- Graceful PostgreSQL and HTTP server shutdown
+
+---
+
+## Technologies
 
 - HTML5
 - CSS3
 - JavaScript
 - Node.js
 - Express
-- SQLite
+- PostgreSQL
 - SQL
+
+---
+
+## System Architecture
+
+```text
+Browser
+   │
+   ├── index.html
+   ├── styles.css
+   └── script.js
+          │
+          │ REST API requests
+          ▼
+      Express Server
+          │
+          ▼
+      articles.js
+          │
+          │ Parameterized SQL
+          ▼
+      database.js
+          │
+          │ Connection Pool
+          ▼
+      PostgreSQL
+```
+
+The frontend and backend are served from the same Express application, allowing the browser to communicate with the API through relative routes such as:
+
+```text
+/api/articles
+```
+
+---
 
 ## Project Structure
 
 ```text
 article-publishing-system/
+
 ├── index.html
 ├── styles.css
 ├── script.js
 ├── server.js
-├── database.js
 ├── articles.js
-└── schema.sql
+├── database.js
+├── schema.sql
+└── README.md
 ```
+
+---
 
 ## How the Files Work Together
 
 ```text
 index.html
-    ↓ provides the page structure
+    ↓
+Defines the public Data archive structure
 
 styles.css
-    ↓ controls the page design
+    ↓
+Provides responsive page and article styling
 
 script.js
-    ↓ requests article data from the backend
+    ↓
+Handles search, filtering, pagination, and API requests
 
 server.js
-    ↓ receives frontend requests
+    ↓
+Configures Express and routes incoming requests
 
 articles.js
-    ↓ handles article operations
+    ↓
+Validates requests and implements article API operations
 
 database.js
-    ↓ communicates with SQLite
+    ↓
+Executes parameterized queries through a PostgreSQL pool
 
 schema.sql
-    ↓ defines the database table
+    ↓
+Defines tables, constraints, indexes, and triggers
+
+PostgreSQL
+    ↓
+Persists article and editorial workflow data
 ```
 
 ---
 
-## 1. `index.html`
+# Frontend
 
-`index.html` creates the structure of the webpage.
+## `index.html`
 
-It contains:
+`index.html` defines the public-facing Data archive.
 
-- The website header
-- The navigation menu
-- The Data page title
-- The article-list container
-- The pagination container
-- Links to `styles.css` and `script.js`
+It includes:
 
-The article cards do not need to be written directly into this file. Instead, `script.js` retrieves the article data and inserts the cards into the page.
+- Michigan Daily navigation
+- Data journalism page introduction
+- Article search
+- Category filtering
+- Results information
+- Article results container
+- Empty-result state
+- Pagination controls
+- Accessible status messages
 
-Example:
-
-```html
-<section id="article-list" class="article-list">
-    <!-- JavaScript inserts article cards here. -->
-</section>
-```
+Article cards are generated dynamically by `script.js` rather than being hard-coded into the page.
 
 ---
 
-## 2. `styles.css`
+## `styles.css`
 
-`styles.css` controls the appearance of the webpage.
+`styles.css` provides the responsive visual design for the application.
 
 It handles:
 
-- Page spacing
-- Fonts and typography
-- Article-card layouts
-- Featured-image sizes
-- Author and publication-date styling
-- Pagination buttons
-- Navigation styling
-- Hover effects
-- Mobile responsiveness
+- Header and navigation styling
+- Data page typography
+- Search and filtering controls
+- Article cards
+- Featured images
+- Article categories
+- Author and publication metadata
+- Article excerpts
+- Loading and empty states
+- Pagination controls
+- Keyboard focus states
+- Responsive layouts
 
-For larger screens, each article can use a two-column layout:
+On larger screens, articles use a two-column layout:
 
 ```text
-[ Article Image ]   Article Title
-                    Author and Date
-                    Article Excerpt
+┌──────────────────┐    Article Category
+│                  │    Article Title
+│  Featured Image  │    Author • Publication Date
+│                  │    Article excerpt...
+└──────────────────┘    Read article →
 ```
 
-For smaller screens, the layout changes to one column:
+On smaller screens, the layout automatically becomes:
 
 ```text
-[ Article Image ]
+┌──────────────────────────┐
+│      Featured Image      │
+└──────────────────────────┘
 
+Article Category
 Article Title
-Author and Date
-Article Excerpt
+Author • Publication Date
+Article excerpt...
+
+Read article →
 ```
 
 ---
 
-## 3. `script.js`
+## `script.js`
 
-`script.js` controls the frontend behavior.
+`script.js` manages frontend behavior and communication with the REST API.
 
-It:
+It handles:
 
-- Requests published articles from the backend
-- Reads the JSON response
-- Creates article cards
-- Inserts article cards into `index.html`
-- Formats authors and dates
-- Handles pagination
-- Displays loading and error messages
-- Controls the mobile navigation menu
+- Fetching published articles
+- Building API query parameters
+- Searching articles
+- Filtering by category
+- Server-side pagination
+- Rendering article cards
+- Formatting publication dates
+- Displaying article counts
+- Loading states
+- Empty-result states
+- Error handling
+- Clearing active search filters
 
-Example request:
+### Example API Request
 
-```javascript
-fetch("http://localhost:3000/api/articles")
+```text
+/api/articles?page=1&limit=5
 ```
 
-The backend returns article information such as:
+Search can be combined with pagination:
 
-```json
-{
-    "id": 1,
-    "title": "Campus transportation by the numbers",
-    "author": "Daily Data Staff",
-    "excerpt": "A summary of campus transportation data.",
-    "content": "The complete article content.",
-    "imageUrl": "images/transportation.jpg",
-    "imageAlt": "Buses traveling around campus",
-    "category": "Data",
-    "status": "published"
-}
+```text
+/api/articles?search=housing&page=1&limit=5
 ```
+
+Category filtering can also be performed:
+
+```text
+/api/articles?category=Elections&page=1&limit=5
+```
+
+The backend performs the filtering and pagination before returning the results, rather than requiring the browser to download every article.
 
 ---
 
-## 4. `server.js`
+# Backend
 
-`server.js` starts and configures the backend server.
+## `server.js`
+
+`server.js` is the entry point for the backend application.
 
 It:
 
 - Creates the Express application
-- Selects the server port
-- Enables JSON request bodies
-- Enables communication between the frontend and backend
-- Connects the article routes
-- Initializes the database
+- Parses JSON and form requests
+- Limits incoming request sizes
+- Serves frontend files
+- Registers article API routes
+- Verifies PostgreSQL connectivity
+- Initializes the database schema
+- Provides application health checks
+- Logs incoming requests
 - Handles missing routes
-- Handles unexpected server errors
+- Provides centralized error handling
+- Handles graceful application shutdown
 
-The server runs at:
+The application runs locally at:
 
 ```text
 http://localhost:3000
@@ -186,117 +271,193 @@ The article API begins at:
 http://localhost:3000/api/articles
 ```
 
-Example:
+The health endpoint is:
 
-```javascript
-app.use("/api/articles", articlesRouter);
+```text
+http://localhost:3000/api/health
 ```
-
-This sends every request beginning with `/api/articles` to `articles.js`.
 
 ---
 
-## 5. `database.js`
+## `articles.js`
 
-`database.js` connects the backend to the SQLite database.
+`articles.js` implements the REST API for article management.
 
-It:
+### API Endpoints
 
-- Opens the `articles.db` database
-- Reads `schema.sql`
-- Creates the database table when necessary
-- Runs SQL commands
-- Retrieves one database row
-- Retrieves multiple database rows
-- Closes the database connection safely
-
-It provides reusable functions:
-
-```javascript
-run()
-get()
-all()
-initializeDatabase()
-closeDatabase()
-```
-
-Their purposes are:
-
-| Function | Purpose |
-|---|---|
-| `run()` | Runs `INSERT`, `UPDATE`, and `DELETE` commands |
-| `get()` | Retrieves one database row |
-| `all()` | Retrieves multiple database rows |
-| `initializeDatabase()` | Creates the required tables |
-| `closeDatabase()` | Closes the database connection |
-
----
-
-## 6. `articles.js`
-
-`articles.js` contains the article API routes.
-
-It handles the main article operations:
-
-| Method | Route | Purpose |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/articles` | Retrieves published articles |
-| `GET` | `/api/articles/:id` | Retrieves one article |
-| `POST` | `/api/articles` | Creates an article |
-| `PATCH` | `/api/articles/:id` | Edits or publishes an article |
-| `DELETE` | `/api/articles/:id` | Deletes an article |
+| `GET` | `/api/articles` | Retrieve published articles |
+| `GET` | `/api/articles/:id` | Retrieve an individual article |
+| `POST` | `/api/articles` | Create an article |
+| `PATCH` | `/api/articles/:id` | Update an article or its workflow state |
+| `DELETE` | `/api/articles/:id` | Delete an article |
 
-### Create an article
+The API also supports query parameters for search, filtering, and pagination.
+
+### Search
+
+```http
+GET /api/articles?search=transportation
+```
+
+Search checks article:
+
+- Titles
+- Authors
+- Excerpts
+- Content
+
+### Category Filtering
+
+```http
+GET /api/articles?category=Data
+```
+
+### Pagination
+
+```http
+GET /api/articles?page=2&limit=10
+```
+
+A paginated response includes metadata such as:
+
+```json
+{
+    "success": true,
+    "page": 2,
+    "limit": 10,
+    "total": 47,
+    "totalPages": 5,
+    "articles": []
+}
+```
+
+### Create an Article
 
 ```http
 POST /api/articles
 ```
 
-Example request body:
+Example request:
 
 ```json
 {
     "title": "Campus transportation by the numbers",
     "author": "Daily Data Staff",
-    "excerpt": "A summary of campus transportation data.",
+    "excerpt": "An analysis of transportation trends around campus.",
     "content": "The complete article content goes here.",
     "imageUrl": "images/transportation.jpg",
-    "imageAlt": "Buses and students traveling across campus",
+    "imageAlt": "Buses traveling around campus",
     "category": "Data",
-    "status": "published"
+    "status": "draft"
 }
 ```
 
-### Edit an article
+### Update an Article
 
 ```http
 PATCH /api/articles/1
 ```
 
-Example request body:
+Example:
 
 ```json
 {
-    "title": "Updated article title",
-    "status": "published"
+    "status": "in_review"
 }
 ```
 
-### Delete an article
+### Delete an Article
 
 ```http
 DELETE /api/articles/1
 ```
 
+All SQL values are passed through parameterized queries rather than being directly inserted into SQL strings.
+
 ---
 
-## 7. `schema.sql`
+# Editorial Workflow
 
-`schema.sql` defines the structure of the database.
+Articles support a multi-stage editorial lifecycle:
 
-It creates the `articles` table.
+```text
+DRAFT
+  │
+  ▼
+IN_REVIEW
+  │
+  ▼
+APPROVED
+  │
+  ▼
+PUBLISHED
+  │
+  ▼
+ARCHIVED
+```
 
-The table stores:
+The supported database values are:
+
+```text
+draft
+in_review
+approved
+published
+archived
+```
+
+This allows article records to represent different stages of the publishing process rather than only distinguishing between drafts and published content.
+
+When an article is first published, the backend automatically assigns its publication timestamp.
+
+---
+
+# Database
+
+## `database.js`
+
+`database.js` manages communication between the Express application and PostgreSQL.
+
+It uses a PostgreSQL connection pool so database connections can be reused across API requests.
+
+The module provides:
+
+| Function | Purpose |
+|---|---|
+| `query()` | Executes SQL and returns multiple rows |
+| `get()` | Executes SQL and returns one row |
+| `checkDatabaseConnection()` | Verifies PostgreSQL availability |
+| `initializeDatabase()` | Executes the database schema |
+| `closeDatabase()` | Gracefully closes the connection pool |
+
+### Connection Pool
+
+Rather than opening a new PostgreSQL connection for every API request, the application maintains a reusable pool:
+
+```text
+Express Requests
+      │
+      ▼
+PostgreSQL Connection Pool
+   │      │      │
+   ▼      ▼      ▼
+Connection Connections...
+      │
+      ▼
+PostgreSQL
+```
+
+Database configuration is loaded through environment variables instead of being hard-coded into application logic.
+
+---
+
+## `schema.sql`
+
+`schema.sql` defines the PostgreSQL database structure.
+
+The `articles` table stores:
 
 | Column | Purpose |
 |---|---|
@@ -304,99 +465,267 @@ The table stores:
 | `title` | Article headline |
 | `author` | Article author |
 | `excerpt` | Short article summary |
-| `content` | Full article body |
-| `image_url` | Featured-image location |
+| `content` | Complete article content |
+| `image_url` | Featured image location |
 | `image_alt` | Accessible image description |
 | `category` | Article category |
-| `status` | Draft or published status |
-| `created_at` | Date the article was created |
-| `updated_at` | Date the article was last edited |
-| `published_at` | Date the article was published |
+| `status` | Editorial workflow state |
+| `created_at` | Creation timestamp |
+| `updated_at` | Last modification timestamp |
+| `published_at` | Publication timestamp |
 
-The status is restricted to:
+The database enforces constraints for required article fields and valid editorial states.
 
-```text
-draft
-published
-```
-
-The file also creates indexes to make common database searches faster.
+A published article is also required to have a publication timestamp.
 
 ---
 
-## Article Publishing Flow
+## Database Indexing
 
-When a writer publishes an article, the data moves through the system like this:
+Indexes support frequently used article queries.
+
+The database includes indexes for:
+
+- Article status
+- Article category
+- Publication date
+- Published articles ordered by publication date
+
+These indexes support common operations such as retrieving recent published articles and filtering articles by category.
+
+---
+
+## Automatic Timestamps
+
+PostgreSQL automatically assigns creation timestamps when articles are inserted.
+
+The database also includes a trigger that automatically updates:
 
 ```text
-Publishing form
-      ↓
-script.js sends a POST request
-      ↓
-server.js receives the request
-      ↓
-articles.js validates the article
-      ↓
-database.js runs the SQL command
-      ↓
-SQLite stores the article
+updated_at
 ```
+
+whenever an article record changes.
+
+This keeps modification timestamps consistent without relying entirely on application code.
+
+---
+
+# Search and Pagination
+
+Search and pagination are performed on the server.
+
+For example:
+
+```text
+User searches "housing"
+        │
+        ▼
+script.js
+        │
+        ▼
+GET /api/articles?search=housing&page=1&limit=5
+        │
+        ▼
+articles.js
+        │
+        ▼
+PostgreSQL
+        │
+        ├── Search matching records
+        ├── Count matching records
+        ├── Sort published articles
+        └── Return requested page
+        │
+        ▼
+JSON Response
+        │
+        ▼
+Article cards rendered in browser
+```
+
+PostgreSQL `ILIKE` queries provide case-insensitive article searching.
+
+---
+
+# Application Flow
+
+## Reader Workflow
 
 When a reader opens the Data page:
 
 ```text
-Browser opens index.html
-      ↓
+Browser requests Data page
+        ↓
+Express serves index.html
+        ↓
 script.js requests published articles
-      ↓
-server.js receives the request
-      ↓
-articles.js retrieves the articles
-      ↓
-database.js reads the database
-      ↓
-JSON is returned to script.js
-      ↓
-Article cards appear on the page
+        ↓
+articles.js processes search/filter parameters
+        ↓
+database.js queries PostgreSQL
+        ↓
+PostgreSQL returns matching records
+        ↓
+API returns JSON
+        ↓
+script.js renders article cards
 ```
 
 ---
 
+## Publishing Workflow
 
+When an article is created or updated through the API:
 
+```text
+Article request
+      ↓
+Express
+      ↓
+articles.js
+      ↓
+Request validation
+      ↓
+Parameterized SQL query
+      ↓
+PostgreSQL
+      ↓
+Database constraints
+      ↓
+Updated article returned as JSON
+```
 
-## Important Note
+---
 
-This project does not include user authentication.
+# Error Handling
 
-Anyone who can access the backend article routes could potentially create, edit, or delete articles.
+The application handles errors across multiple layers.
 
-A production publishing system should also include:
+### Frontend
 
-- User login
-- Password security
-- Role-based permissions
-- Request validation
-- Image-upload handling
-- Rate limiting
-- Security headers
-- Automated tests
-- Deployment configuration
+The browser displays:
+
+- Loading states
+- Empty search results
+- API failures
+- Invalid response states
+
+### API
+
+The backend returns appropriate HTTP responses for:
+
+- Invalid article IDs
+- Invalid article data
+- Missing articles
+- Invalid editorial statuses
+- Missing routes
+- Unexpected server errors
+
+### Database
+
+PostgreSQL provides an additional layer of data validation through:
+
+- `NOT NULL` constraints
+- `CHECK` constraints
+- Valid status enforcement
+- Publication-date requirements
+
+---
+
+# Responsive Design
+
+The frontend adapts across desktop, tablet, and mobile screen sizes.
+
+Responsive behavior includes:
+
+- Two-column and single-column article layouts
+- Flexible search controls
+- Responsive category filtering
+- Mobile navigation
+- Flexible typography
+- Wrapping pagination controls
+
+The interface also includes semantic HTML, accessible form labels, keyboard focus states, alternative image text, and ARIA attributes for dynamic content.
+
+---
+
+# Health Monitoring
+
+The backend exposes:
+
+```http
+GET /api/health
+```
+
+The endpoint verifies both:
+
+```text
+Express API
+PostgreSQL
+```
+
+A healthy response indicates that the application is running and can communicate with its database.
+
+---
+
+# Skills Demonstrated
+
+- Full-Stack Web Development
+- JavaScript
+- Node.js
+- Express
+- PostgreSQL
+- SQL
+- REST API Design
+- Relational Database Design
+- PostgreSQL Connection Pooling
+- Parameterized SQL Queries
+- Server-Side Search
+- Server-Side Pagination
+- API Validation
+- Editorial Workflow Design
+- Database Constraints
+- Database Indexing
+- Responsive Web Design
+- Error Handling
+- Application Lifecycle Management
+- Accessibility
 
 ---
 
 ## Summary
 
-The seven files divide the system into clear responsibilities:
+The project separates frontend, API, and database responsibilities into focused modules:
 
 ```text
-index.html   → page structure
-styles.css   → page design
-script.js    → frontend article behavior
-server.js    → backend server
-database.js  → database connection
-articles.js  → article API operations
-schema.sql   → database structure
+index.html
+    ↓
+Page structure
+
+styles.css
+    ↓
+Responsive interface
+
+script.js
+    ↓
+Frontend behavior and API communication
+
+server.js
+    ↓
+Express application and lifecycle
+
+articles.js
+    ↓
+REST API and article business logic
+
+database.js
+    ↓
+PostgreSQL connection management
+
+schema.sql
+    ↓
+Database structure and constraints
 ```
 
-Together, they create a basic full-stack article publishing and display system.
+Together, these components create a full-stack article publishing system with a responsive public interface, RESTful article management, server-side search and pagination, PostgreSQL persistence, and a structured editorial workflow.
