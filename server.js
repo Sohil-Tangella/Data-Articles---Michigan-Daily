@@ -2,252 +2,388 @@
 
 /*
 =========================================================
-Article Publishing System
+Michigan Daily Article Publishing System
 File: server.js
 
 Responsibilities:
-- Create the Express server
-- Enable JSON request bodies
-- Enable frontend-to-backend communication
-- Connect the article API routes
-- Initialize the SQLite database
+- Create and configure the Express server
+- Serve the frontend application
+- Enable JSON and form request bodies
+- Register article API routes
+- Verify and initialize PostgreSQL
+- Provide API health checks
 - Handle missing routes
-- Handle unexpected errors
+- Handle unexpected server errors
 - Start and stop the server safely
 =========================================================
 */
 
+const path = require("path");
 const express = require("express");
-const cors = require("cors");
+
+require("dotenv").config();
 
 const articlesRouter = require("./articles");
 
 const {
+    checkDatabaseConnection,
     initializeDatabase,
     closeDatabase
 } = require("./database");
 
-/*
- * Create the Express application.
- */
+
+// =========================================================
+// Application Configuration
+// =========================================================
+
 const app = express();
 
-/*
- * Use the environment port when deployed.
- *
- * Otherwise, use port 3000 during local development.
- */
-const PORT = process.env.PORT || 3000;
+const PORT =
+    Number.parseInt(
+        process.env.PORT || "3000",
+        10
+    );
+
+
+// =========================================================
+// Request Middleware
+// =========================================================
 
 /*
- * Enable Cross-Origin Resource Sharing.
+ * Parse JSON request bodies.
  *
- * This allows the frontend to make requests to the
- * backend when they run on different local ports.
- *
- * Example:
- *
- * Frontend:
- * http://localhost:5500
- *
- * Backend:
- * http://localhost:3000
- */
-app.use(cors());
-
-/*
- * Allow Express to read JSON request bodies.
- *
- * Example request body:
- *
- * {
- *     "title": "New article",
- *     "author": "Daily Staff"
- * }
- */
-app.use(express.json());
-
-/*
- * Allow Express to read form data.
- *
- * This is useful when data is submitted from
- * a standard HTML form.
+ * The request-size limit helps prevent unexpectedly
+ * large payloads from being accepted by the API.
  */
 app.use(
-    express.urlencoded({
-        extended: true
+    express.json({
+        limit: "1mb"
     })
 );
 
+
 /*
- * Simple request logger.
- *
- * Each incoming request is printed in the terminal.
- *
- * Example:
- *
- * GET /api/articles
- * POST /api/articles
+ * Parse standard HTML form submissions.
  */
-app.use((request, response, next) => {
-    const currentTime = new Date().toISOString();
+app.use(
+    express.urlencoded({
+        extended: true,
+        limit: "1mb"
+    })
+);
 
-    console.log(
-        `[${currentTime}] ${request.method} ${request.originalUrl}`
-    );
-
-    next();
-});
 
 /*
- * Health-check route.
- *
- * This route can be used to confirm that
- * the backend server is running.
- *
- * Visit:
- *
- * http://localhost:3000/api/health
+ * Log incoming requests.
  */
-app.get("/api/health", (request, response) => {
-    response.status(200).json({
-        success: true,
-        message: "The article API is running."
-    });
-});
+app.use(
+    (
+        request,
+        response,
+        next
+    ) => {
+        const currentTime =
+            new Date().toISOString();
+
+        console.log(
+            `[${currentTime}] ` +
+            `${request.method} ` +
+            `${request.originalUrl}`
+        );
+
+        next();
+    }
+);
+
+
+// =========================================================
+// Static Frontend
+// =========================================================
 
 /*
- * Connect the article routes.
+ * Serve frontend files directly from this project.
  *
- * Every route inside articles.js begins with:
+ * This allows the public site and API to use the same
+ * origin, so the frontend can request:
  *
  * /api/articles
  *
- * Examples:
- *
- * GET    /api/articles
- * GET    /api/articles/1
- * POST   /api/articles
- * PATCH  /api/articles/1
- * DELETE /api/articles/1
+ * without hard-coding localhost ports or requiring CORS.
  */
-app.use("/api/articles", articlesRouter);
+app.use(
+    express.static(__dirname)
+);
+
+
+// =========================================================
+// System Routes
+// =========================================================
 
 /*
- * Handle routes that do not exist.
+ * Health-check endpoint.
  *
- * This middleware runs only when no earlier
- * route matched the incoming request.
+ * Verifies both the Express API and PostgreSQL connection.
  */
-app.use((request, response) => {
-    response.status(404).json({
-        success: false,
-        error: "Route not found.",
-        method: request.method,
-        path: request.originalUrl
-    });
-});
+app.get(
+    "/api/health",
+    async (
+        request,
+        response
+    ) => {
+        try {
+            await checkDatabaseConnection();
 
-/*
- * Global error-handling middleware.
- *
- * Express recognizes this as an error handler because
- * it contains four parameters:
- *
- * error
- * request
- * response
- * next
- */
-app.use((error, request, response, next) => {
-    console.error("Unexpected server error:", error);
+            return response
+                .status(200)
+                .json({
+                    success: true,
+                    status: "healthy",
+                    services: {
+                        api: "healthy",
+                        postgresql: "healthy"
+                    }
+                });
 
-    /*
-     * Avoid sending another response if Express
-     * has already started sending one.
-     */
-    if (response.headersSent) {
-        return next(error);
+        } catch (error) {
+            return response
+                .status(503)
+                .json({
+                    success: false,
+                    status: "unhealthy",
+                    services: {
+                        api: "healthy",
+                        postgresql: "unavailable"
+                    }
+                });
+        }
     }
+);
 
-    return response.status(500).json({
-        success: false,
-        error: "An unexpected server error occurred."
-    });
-});
+
+// =========================================================
+// Article API
+// =========================================================
+
+app.use(
+    "/api/articles",
+    articlesRouter
+);
+
+
+// =========================================================
+// Frontend Route
+// =========================================================
 
 /*
- * Store the running HTTP server.
+ * Return the main Data page.
  *
- * This allows the application to shut down safely.
+ * Express.static() already serves index.html at "/",
+ * but this route makes the intended application entry
+ * point explicit.
  */
+app.get(
+    "/",
+    (
+        request,
+        response
+    ) => {
+        response.sendFile(
+            path.join(
+                __dirname,
+                "index.html"
+            )
+        );
+    }
+);
+
+
+// =========================================================
+// 404 Handler
+// =========================================================
+
+app.use(
+    (
+        request,
+        response
+    ) => {
+        /*
+         * API routes receive a JSON error response.
+         */
+        if (
+            request.originalUrl.startsWith(
+                "/api/"
+            )
+        ) {
+            return response
+                .status(404)
+                .json({
+                    success: false,
+                    error: "Route not found.",
+                    method:
+                        request.method,
+                    path:
+                        request.originalUrl
+                });
+        }
+
+        /*
+         * Non-API routes receive a simple text response.
+         */
+        return response
+            .status(404)
+            .send(
+                "Page not found."
+            );
+    }
+);
+
+
+// =========================================================
+// Global Error Handler
+// =========================================================
+
+app.use(
+    (
+        error,
+        request,
+        response,
+        next
+    ) => {
+        console.error(
+            "Unexpected server error:",
+            error
+        );
+
+        if (response.headersSent) {
+            return next(error);
+        }
+
+        return response
+            .status(500)
+            .json({
+                success: false,
+                error:
+                    "An unexpected server error occurred."
+            });
+    }
+);
+
+
+// =========================================================
+// Server Lifecycle
+// =========================================================
+
 let httpServer = null;
+let isShuttingDown = false;
+
 
 /*
- * Initialize the database and start the server.
+ * Verify PostgreSQL, initialize the schema,
+ * and then begin accepting requests.
  */
 async function startServer() {
     try {
-        /*
-         * Create the database tables before accepting
-         * any incoming API requests.
-         */
+        console.log(
+            "Starting Michigan Daily Article Publishing System..."
+        );
+
+        await checkDatabaseConnection();
+
         await initializeDatabase();
 
-        httpServer = app.listen(PORT, () => {
-            console.log(
-                `Server running at http://localhost:${PORT}`
+        httpServer =
+            app.listen(
+                PORT,
+                () => {
+                    console.log(
+                        `Server running at http://localhost:${PORT}`
+                    );
+
+                    console.log(
+                        `Data page: http://localhost:${PORT}/`
+                    );
+
+                    console.log(
+                        `Health check: http://localhost:${PORT}/api/health`
+                    );
+
+                    console.log(
+                        `Articles API: http://localhost:${PORT}/api/articles`
+                    );
+                }
             );
 
-            console.log(
-                `Health check: http://localhost:${PORT}/api/health`
-            );
-
-            console.log(
-                `Articles API: http://localhost:${PORT}/api/articles`
-            );
-        });
     } catch (error) {
         console.error(
             "The server could not be started:",
             error
         );
 
+        try {
+            await closeDatabase();
+        } catch (
+            closeError
+        ) {
+            console.error(
+                "Unable to close database after startup failure:",
+                closeError
+            );
+        }
+
         process.exit(1);
     }
 }
 
+
 /*
- * Safely stop the HTTP server and database connection.
+ * Gracefully stop HTTP traffic and close
+ * the PostgreSQL connection pool.
  */
-async function shutdownServer(signal) {
-    console.log(`\nReceived ${signal}. Shutting down...`);
+async function shutdownServer(
+    signal
+) {
+    if (isShuttingDown) {
+        return;
+    }
+
+    isShuttingDown = true;
+
+    console.log(
+        `\nReceived ${signal}. Shutting down...`
+    );
 
     try {
-        /*
-         * Stop accepting new HTTP requests.
-         */
         if (httpServer) {
-            await new Promise((resolve, reject) => {
-                httpServer.close((error) => {
-                    if (error) {
-                        reject(error);
-                        return;
-                    }
+            await new Promise(
+                (
+                    resolve,
+                    reject
+                ) => {
+                    httpServer.close(
+                        (error) => {
+                            if (error) {
+                                reject(
+                                    error
+                                );
 
-                    resolve();
-                });
-            });
+                                return;
+                            }
+
+                            resolve();
+                        }
+                    );
+                }
+            );
         }
 
-        /*
-         * Close the SQLite database connection.
-         */
         await closeDatabase();
 
-        console.log("Server stopped successfully.");
+        console.log(
+            "Server stopped successfully."
+        );
 
         process.exit(0);
+
     } catch (error) {
         console.error(
             "An error occurred while stopping the server:",
@@ -258,46 +394,67 @@ async function shutdownServer(signal) {
     }
 }
 
-/*
- * Handle common terminal shutdown signals.
- *
- * SIGINT:
- * Usually triggered by pressing Control + C.
- *
- * SIGTERM:
- * Usually sent by a hosting platform or operating system.
- */
-process.on("SIGINT", () => {
-    shutdownServer("SIGINT");
-});
 
-process.on("SIGTERM", () => {
-    shutdownServer("SIGTERM");
-});
+// =========================================================
+// Process Signals
+// =========================================================
 
-/*
- * Catch rejected promises that were not handled elsewhere.
- */
-process.on("unhandledRejection", (reason) => {
-    console.error(
-        "Unhandled promise rejection:",
+process.on(
+    "SIGINT",
+    () => {
+        shutdownServer(
+            "SIGINT"
+        );
+    }
+);
+
+
+process.on(
+    "SIGTERM",
+    () => {
+        shutdownServer(
+            "SIGTERM"
+        );
+    }
+);
+
+
+process.on(
+    "unhandledRejection",
+    (
         reason
-    );
-});
+    ) => {
+        console.error(
+            "Unhandled promise rejection:",
+            reason
+        );
 
-/*
- * Catch unexpected synchronous errors.
- */
-process.on("uncaughtException", (error) => {
-    console.error(
-        "Uncaught exception:",
+        shutdownServer(
+            "unhandledRejection"
+        );
+    }
+);
+
+
+process.on(
+    "uncaughtException",
+    (
         error
-    );
+    ) => {
+        console.error(
+            "Uncaught exception:",
+            error
+        );
 
-    shutdownServer("uncaughtException");
-});
+        shutdownServer(
+            "uncaughtException"
+        );
+    }
+);
 
-/*
- * Begin running the backend application.
- */
+
+// =========================================================
+// Start Application
+// =========================================================
+
 startServer();
