@@ -3,24 +3,20 @@
 
 <head>
 
-    <!-- Character encoding -->
     <meta charset="UTF-8">
 
-    <!-- Responsive design -->
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-    <!-- Search engine description -->
     <meta
         name="description"
-        content="Browse data journalism articles."
+        content="Explore data-driven journalism and analysis from The Michigan Daily."
     >
 
-    <title>Michigan Daily | Data</title>
+    <title>Data | The Michigan Daily</title>
 
-    <!-- Stylesheet -->
     <link
         rel="stylesheet"
         href="styles.css"
@@ -32,19 +28,19 @@
 
     <!--
     =========================================================
-    Article Publishing System
+    Michigan Daily Article Publishing System
     File: index.html
 
     Responsibilities:
-    - Define the overall page structure
-    - Display the website header and navigation
-    - Display the Data page title
-    - Provide containers for article cards
-    - Provide the pagination container
-    - Display status messages
-    - Load the stylesheet and JavaScript
+    - Define the public Data archive layout
+    - Display site navigation
+    - Provide article search and filtering controls
+    - Provide containers for dynamically loaded articles
+    - Display loading, empty, and error states
+    - Provide pagination controls
     =========================================================
     -->
+
 
     <!-- ==========================
          Website Header
@@ -54,28 +50,56 @@
 
         <div class="header-container">
 
-            <h1 class="logo">
+            <a
+                href="#"
+                class="logo"
+                aria-label="The Michigan Daily home"
+            >
                 The Michigan Daily
-            </h1>
+            </a>
 
-            <nav class="navigation">
+            <nav
+                class="navigation"
+                aria-label="Main navigation"
+            >
 
                 <ul>
 
-                    <li><a href="#">News</a></li>
+                    <li>
+                        <a href="#">
+                            News
+                        </a>
+                    </li>
 
-                    <li><a href="#">Sports</a></li>
+                    <li>
+                        <a href="#">
+                            Sports
+                        </a>
+                    </li>
 
-                    <li><a href="#">Opinion</a></li>
+                    <li>
+                        <a href="#">
+                            Opinion
+                        </a>
+                    </li>
 
-                    <li><a href="#">Arts</a></li>
+                    <li>
+                        <a href="#">
+                            Arts
+                        </a>
+                    </li>
 
-                    <li><a href="#">Multimedia</a></li>
+                    <li>
+                        <a href="#">
+                            Multimedia
+                        </a>
+                    </li>
 
                     <li>
                         <a
                             href="#"
                             class="active"
+                            aria-current="page"
                         >
                             Data
                         </a>
@@ -89,76 +113,222 @@
 
     </header>
 
+
     <!-- ==========================
          Main Content
     =========================== -->
 
     <main>
 
+        <!-- Page Introduction -->
+
         <section class="page-title">
 
-            <h2>Data</h2>
+            <h1>
+                Data
+            </h1>
 
             <p>
-                Explore data-driven journalism from
+                Explore data-driven reporting,
+                analysis, and visual journalism from
                 The Michigan Daily.
             </p>
 
         </section>
 
-        <!--
-        JavaScript inserts all article cards here.
-        -->
+
+        <!-- ==========================
+             Search and Filters
+        =========================== -->
+
+        <section
+            class="article-controls"
+            aria-label="Article search and filters"
+        >
+
+            <form
+                id="article-search-form"
+                class="search-form"
+                role="search"
+            >
+
+                <label
+                    for="article-search"
+                    class="visually-hidden"
+                >
+                    Search articles
+                </label>
+
+                <input
+                    type="search"
+                    id="article-search"
+                    name="search"
+                    placeholder="Search articles..."
+                    autocomplete="off"
+                >
+
+                <button type="submit">
+                    Search
+                </button>
+
+            </form>
+
+
+            <div class="filter-group">
+
+                <label for="category-filter">
+                    Category
+                </label>
+
+                <select
+                    id="category-filter"
+                    name="category"
+                >
+
+                    <option value="">
+                        All Categories
+                    </option>
+
+                    <option value="Campus">
+                        Campus
+                    </option>
+
+                    <option value="Data">
+                        Data
+                    </option>
+
+                    <option value="Elections">
+                        Elections
+                    </option>
+
+                    <option value="Environment">
+                        Environment
+                    </option>
+
+                    <option value="Housing">
+                        Housing
+                    </option>
+
+                    <option value="Transportation">
+                        Transportation
+                    </option>
+
+                </select>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==========================
+             Results Information
+        =========================== -->
+
+        <section
+            class="results-header"
+            aria-live="polite"
+        >
+
+            <p id="results-count"></p>
+
+        </section>
+
+
+        <!-- ==========================
+             Status Message
+        =========================== -->
+
+        <div
+            id="status-message"
+            class="status-message"
+            role="status"
+            aria-live="polite"
+        ></div>
+
+
+        <!-- ==========================
+             Article Results
+        =========================== -->
 
         <section
             id="article-container"
             class="article-container"
+            aria-label="Data articles"
         >
+
+            <!--
+            Article cards are dynamically
+            inserted by script.js.
+            -->
 
         </section>
 
-        <!--
-        JavaScript generates the pagination buttons here.
-        -->
+
+        <!-- ==========================
+             Empty State
+        =========================== -->
 
         <section
+            id="empty-state"
+            class="empty-state"
+            hidden
+        >
+
+            <h2>
+                No articles found
+            </h2>
+
+            <p>
+                Try changing your search or
+                selecting another category.
+            </p>
+
+            <button
+                id="clear-filters"
+                type="button"
+            >
+                Clear filters
+            </button>
+
+        </section>
+
+
+        <!-- ==========================
+             Pagination
+        =========================== -->
+
+        <nav
             id="pagination"
             class="pagination"
+            aria-label="Article pagination"
         >
 
-        </section>
+            <!--
+            Pagination controls are dynamically
+            generated by script.js.
+            -->
 
-        <!--
-        Loading and status messages appear here.
-        -->
-
-        <section
-            id="status-message"
-            class="status-message"
-        >
-
-        </section>
+        </nav>
 
     </main>
+
 
     <!-- ==========================
          Footer
     =========================== -->
 
-    <footer>
+    <footer class="site-footer">
 
         <p>
-
-            © 2026 The Michigan Daily
-
+            &copy; 2026 The Michigan Daily
         </p>
 
     </footer>
 
-    <!--
-    Load the frontend JavaScript after
-    the HTML has finished loading.
-    -->
+
+    <!-- ==========================
+         Frontend JavaScript
+    =========================== -->
 
     <script src="script.js"></script>
 
